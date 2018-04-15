@@ -1,2 +1,2 @@
 # Data-Analyst-ND
-Udacity Data Analyst Project Files
+Udacity Data Analyst Nanodegree Project Files
