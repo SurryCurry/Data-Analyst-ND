@@ -1,0 +1,390 @@
+Explore & Summarize Data by Suraag Gupta
+========================================================
+
+This report is for the Financial Contributions to Presidential Campaigns
+dataset. The state used for this dataset is Ohio.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(dplyr)
+library(knitr)
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+fcpc=read.csv('P00000001-OH.csv')
+```
+
+# Univariate Plots Section
+
+```{r echo=FALSE, Univariate_Plots}
+str(fcpc)
+```
+
+There's almost 170,000 observations in this dataset, with 18 variables. There's
+a good chance some of these code blocks will take a fair bit of time to run.
+
+```{r echo=FALSE}
+summary(fcpc)
+```
+
+Looking at the summary of the variables, some of my observations are that:
+- It seems that cmte_id & cand_id are very similar and could possibly have the
+same semantic references.
+- Looking at contbr_nm, it seems that several people made contributions multiple
+times.
+- All the contributors are in the state of Ohio.
+- The discrepancies between contbr_employer and contbr_occupation are somewhat
+strange, as I would expect values such as "RETIRED" to match.
+- The contribution quantities are fairly small, looking at the mean and median
+values. The large negative number for the minimum is an interesting data point,
+I wouldn't expect there to be negative contributions, or "withdrawals" here.
+Hopefully, the receipt_desc or memo_text will explain what is going on there.
+
+```{r echo=FALSE}
+fcpc$contb_receipt_dt=as.Date(fcpc$contb_receipt_dt, "%e-%b-%y")
+```
+
+```{r echo=FALSE}
+ggplot(aes(cand_nm, fill=cand_nm), data=fcpc)+
+  stat_count(show.legend = FALSE)+coord_flip()
+```
+
+This plot shows quite clearly that the primary recipient of contributions in
+the state of Ohio was Hilary Clinton, with Bernie Sanders and Trump coming in
+second & third, respectively, at nearly half the number. Have to keep in mind
+that this isn't for the total amount of contributions, just how many times the
+candidate was contributed to.
+
+```{r echo=FALSE}
+fcpc_cities=fcpc %>% group_by(contbr_city) %>%
+  summarise(count=n(), amount=sum(contb_receipt_amt))
+
+ggplot(aes(contbr_city, count, fill=contbr_city),
+       data=subset(fcpc_cities, count>=900))+
+  geom_col(show.legend=FALSE)+coord_flip()
+```
+
+Looking at some of the observations of contbr_city, it quickly becomes clear
+that the data hasn't be cleaned, with several misspellings present for the same
+city. Restricting the plot to cities with higher counts shows what most Ohio
+residents would expect. Columbus at the top, with Cincinnati close behind.
+
+```{r echo=FALSE, warning=FALSE}
+fcpc_contbr=fcpc %>% group_by(contbr_nm) %>%
+  summarise(count=n(), amount=sum(contb_receipt_amt))
+
+ggplot(aes(contbr_nm, count), data=subset(fcpc_contbr, count>=100))+
+  geom_col()+coord_flip()
+```
+
+Somewhat unexpected to see people contributing so many times. The main question
+that arises here is who out of these people will appear on the highest amount
+plot.
+
+```{r echo=FALSE}
+fcpc_occ=fcpc %>% group_by(contbr_occupation) %>%
+  summarise(count=n(), amount=sum(contb_receipt_amt))
+
+ggplot(aes(contbr_occupation, count, fill=contbr_occupation),
+       data=subset(fcpc_occ, count>=500))+
+  geom_col(show.legend=FALSE)+coord_flip()
+```
+
+I wasn't expecting to see the Retired contributors make up such a significant
+portion of the dataset, this should be interesting to investigate soon.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(aes(log10(contb_receipt_amt)), data=fcpc)+
+  geom_histogram(bins=50)
+```
+
+Here I used a log10 for the contribution amounts here to visualize better. The
+majority of donations seem to be between the $10 to $100 range.
+
+```{r echo=FALSE}
+ggplot(aes(contb_receipt_dt), data=fcpc)+stat_count()
+```
+
+As would be expected here, most of the contributions were made in in the year of
+the election, with the majority coming in what appears to be near the middle or
+end of the summer.
+
+```{r echo=FALSE}
+ggplot(aes(form_tp, fill=form_tp), data=fcpc)+stat_count(show.legend=FALSE)
+```
+
+```{r echo=FALSE}
+ggplot(aes(election_tp, fill=election_tp), data=fcpc)+
+  stat_count(show.legend=FALSE)
+```
+
+Most of the contributions are directed towards the general & presidential
+elections.
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+The Financial Contributions dataset for Ohio has 167,259 observations of 18
+variables. Committee ID, Candidate ID, & Candidate Name seem to refer to the
+same pieces of data. Most of the variables are unordered factors, due to being
+names, locations, or reference IDs.
+
+### What is/are the main feature(s) of interest in your dataset?
+I think the main features of the dataset are the candidates & the contribution
+amounts.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+Supporting the above two features would be the contribution dates/the election
+type & the occupation of the contributors.
+### Did you create any new variables from existing variables in the dataset?
+I created new dataframes for the first three plots, so that I could have an
+easier time subsetting the data based on counts.
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+There were misspellings in the contributor city, zip code, employer, &
+occupation features, but I did not attempt to fix these. I changed the
+receipt dates from Strings to Dates to make calculations and plots involving
+them easier.
+
+# Bivariate Plots Section
+
+```{r echo=FALSE, warning=FALSE, Bivariate_Plots}
+ggplot(aes(cand_nm, contb_receipt_amt, fill=cand_nm), data=fcpc)+
+  geom_col(show.legend = FALSE)+ylim(0, NA)+coord_flip()
+```
+
+In line with the contribution counts, Hillary Clinton maintains the highest
+total contribution value, but unexpectedly, John Kasich has a surprisingly
+high contribution value ranking at 2nd, while only having the 6th highest
+contribution count. This could indicate the types of voters/contributors that
+supported him. Similarly, Bernie & Trump switched roles with counts & amounts.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, cand_nm, color=cand_nm), data=fcpc)+
+  geom_point(alpha=0.1, show.legend=FALSE)
+```
+
+Here we see that contributions towards the primary elections lasted for a long
+while, and consisted of most of the contributions, which is in line with the
+earlier plot of election type counts.
+
+```{r echo=FALSE}
+ggplot(aes(contbr_city, amount, fill=contbr_city),
+       data=subset(fcpc_cities, amount>=100000))+
+  geom_col(show.legend=FALSE)+coord_flip()
+```
+
+Slightly unexpectedly, while Columbus may have had the highest number of
+contributors, Cincinnati had a higher contribution value.
+
+```{r echo=FALSE}
+ggplot(aes(contbr_nm, amount), data=subset(fcpc_contbr, amount>=10000))+
+  geom_col()+coord_flip()
+```
+
+Comparing this plot to that of the one with the highest contribution counts,
+there are no matching names. It's possible that contributors will either make
+multiple small contributions over a period of time or they will make a few
+large contributions.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(aes(contbr_occupation, amount, fill=contbr_occupation),
+       data=subset(fcpc_occ, amount>=50000))+
+  geom_col(show.legend=FALSE)+ylim(0, NA)+coord_flip()
+```
+
+Moving on to the occupations of the contributors, retirees still take the prime
+position with donation amounts, that too by a huge margin.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), data=fcpc)+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))
+```
+
+Using the 95% quantile for the contribution amounts and cutting out the
+negatives, which after doing some exploration seemed to be mostly refunds, it
+seems that most of the contributions came as the election itself approached.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt),
+       data=subset(fcpc, cand_nm=='Clinton, Hillary Rodham'))+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+ggtitle("Hillary Clinton")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt),
+       data=subset(fcpc, cand_nm=='Trump, Donald J.'))+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+ggtitle("Donald Trump")
+```
+
+Two interesting things can be seen in this plot. First, most of the
+contributions are larger in value, as only a small chunk of the plot has values
+less than about $50. Second, contributions to Trump continued even after he won.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt),
+       data=subset(fcpc, cand_nm=='Sanders, Bernard'))+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+ggtitle("Bernie Sanders")
+```
+
+The above plots for the top 3 contributed candidates have similar trends. Few
+contributions made in the year prior to the election, but generally of higher
+value, while the year of the election is where most of the data lies.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt),
+       data=subset(fcpc, cand_nm=='Kasich, John R.'))+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+ggtitle("John Kasich")
+```
+
+This plot is fairly different from the previous 3. While the information is
+all gathered in a shorter time frame, it seems that, compared to the other
+candidates, there are few contributors that donated less than $50, with the
+majority of the values seeming to be at $100 or $250.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt),
+       data=subset(fcpc, contbr_occupation=='RETIRED'))+
+  geom_jitter(alpha=0.1)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+ggtitle("Retirees")
+```
+
+A similar situation with the individual candidates is visible with the retired
+contributors. This trend is likely identical with all candidates and
+contributor occupations.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(aes(election_tp, contb_receipt_amt, color=election_tp), data=fcpc)+
+  geom_col(show.legend=FALSE)+ylim(0, NA)
+```
+
+The contribution amounts based on the election are in line with the
+contribution counts, with the majority of it going towards the primary election.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+Overall, the contribution amounts and contribution counts produced similar
+relationships through the dataset, with only a few notable exceptions that were
+pointed out above.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+One of the main factors I observed was the date variable. Depending on when the
+candidates were no longer considered in the running, contributions either
+completely stopped or slowed down significantly. The amount of contributions
+increased closer to the election, while the amount of the contribution didn't
+seem to be directly affected by the date.
+
+### What was the strongest relationship you found?
+It seems that the strongest relationship is between date and amount.
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, warning=FALSE, Multivariate_Plots}
+ggplot(aes(contb_receipt_amt, cand_nm), data=fcpc)+
+  geom_count(alpha=0.2)+xlim(0, quantile(fcpc$contb_receipt_amt, 0.98))
+```
+
+```{r echo=FALSE}
+ggplot(aes(contb_receipt_dt, cand_nm, color=election_tp), data=fcpc)+
+  geom_count(alpha=0.1)
+```
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+The first multivariate plot created reinforced the smaller contribution values
+at higher quantities. The second plot illustrated how the funds were split
+for particular elections.
+
+### Were there any interesting or surprising interactions between features?
+The second plot, with the candidates vs the contribution dates colorized by the
+election type was expected, but still somewhat interesting to see. As the
+candidates lost in the primary elections, their funds disappeared, and for the
+winners, all the funding went directly to the coming general election. It's
+likely that this is just a sorting and organizational detail made by the
+committee, as the contributors would not need to make the specification as to
+which election the funds went toward.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, warning=FALSE, Plot_One}
+ggplot(aes(contbr_occupation, count, fill=contbr_occupation),
+       data=subset(fcpc_occ, count>=500))+
+  geom_col(show.legend=FALSE)+coord_flip()+ylab("Times Contributed")+
+  xlab("Contributor Occupation")+ggtitle("Times Contributed by Occupation")
+```
+
+### Description One
+I thought this plot was interesting because I didn't expect retirees to make up
+such a huge portion of the contributors.
+
+### Plot Two
+```{r echo=FALSE, warning=FALSE, Plot_Two}
+ggplot(aes(cand_nm, contb_receipt_amt, fill=cand_nm), data=fcpc)+
+  geom_col(show.legend = FALSE)+ylim(0, NA)+coord_flip()+
+  ylab("Total Contributed ($)")+xlab("Candidate")+
+  ggtitle("Contribution per Candidate")
+```
+
+### Description Two
+This plot is interesting because it demonstrates that even with a much larger
+amount of financial support, the top 2 candidates here lost the election.
+It would be interesting to see if there were similar situations in previous
+election years, as Donald Trump has a significant amount of wealth on his own,
+which may have also been a factor in his relatively lower amount of
+contribution.
+
+### Plot Three
+```{r echo=FALSE, warning=FALSE, message=FALSE, Plot_Three}
+ggplot(aes(contb_receipt_dt, contb_receipt_amt), data=fcpc)+
+  geom_count(alpha=0.075)+geom_smooth()+
+  ylim(0, quantile(fcpc$contb_receipt_amt, 0.95))+xlab("Contribution Date")+
+  ylab("Contribution Amount ($)")+
+  ggtitle("Amount Contributed vs. Date Contributed")
+```
+
+### Description Three
+Perhaps the most obvious of the three plots, showing that the bulk of the
+contributions came in closer to the date of the general election.
+------
+
+# Reflection
+I was slightly disappointed with what information there was to find in this
+dataset. While the insights and plots created certainly had a good amount of
+information to share, there weren't as many variables to explore as I would have
+liked. In addition, with the sheer quantity of different contributors, cities,
+occupations, & employers, it was a little hard to explore everything as much
+as I would have liked. There may be more insights to discover using smaller
+subsets based on the contributors, cities, and occupations, after cleaning the
+data and having a better method to split up the information and plots that rely
+on factored variables.
